@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronUp, ChevronDown, ChevronRight, ChevronDown as ChevronDownExpand, Plus, HelpCircle, Trash, Clipboard, Check, Loader2, Copy, FileText, Brain, BookOpen, PenSquare, FileQuestion, ClipboardList, Lock, Ban } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronRight, ChevronDown as ChevronDownExpand, Plus, HelpCircle, Trash, Clipboard, Check, Loader2, Copy, FileText, Brain, BookOpen, PenSquare, FileQuestion, ClipboardList, Lock, Ban, MessageSquare, Mic, Trophy, RotateCcw, Zap } from "lucide-react";
 import { Module, ModuleItem, Quiz } from "@/types/course";
 import { QuizQuestion } from "@/types/quiz"; // Import from types instead
 import CourseItemDialog from "@/components/CourseItemDialog";
@@ -17,9 +17,11 @@ interface CourseModuleListProps {
     onMoveItemUp?: (moduleId: string, itemId: string) => void;
     onMoveItemDown?: (moduleId: string, itemId: string) => void;
     onDeleteItem?: (moduleId: string, itemId: string) => void;
+    onPublishItem?: (moduleId: string, itemId: string) => void;
     onAddLearningMaterial?: (moduleId: string) => Promise<void>;
     onAddQuiz?: (moduleId: string) => Promise<void>;
     onAddAssignment?: (moduleId: string) => Promise<void>;
+    onAddEvaluator?: (moduleId: string, type: string) => Promise<void>;
     onMoveModuleUp?: (moduleId: string) => void;
     onMoveModuleDown?: (moduleId: string) => void;
     onDeleteModule?: (moduleId: string) => void;
@@ -60,9 +62,11 @@ export default function CourseModuleList({
     onMoveItemUp,
     onMoveItemDown,
     onDeleteItem,
+    onPublishItem,
     onAddLearningMaterial,
     onAddQuiz,
     onAddAssignment,
+    onAddEvaluator,
     onMoveModuleUp,
     onMoveModuleDown,
     onDeleteModule,
@@ -253,6 +257,7 @@ export default function CourseModuleList({
 
     // State to track deletion in progress
     const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+    const [publishingTaskId, setPublishingTaskId] = useState<string | null>(null);
 
     // State to track module deletion in progress
     const [deletingModuleId, setDeletingModuleId] = useState<string | null>(null);
@@ -640,6 +645,7 @@ export default function CourseModuleList({
             case 'material': return 'learning material';
             case 'quiz': return 'quiz';
             case 'assignment': return 'assignment';
+            case 'evaluator': return 'evaluator';
         }
     };
 
@@ -964,6 +970,9 @@ export default function CourseModuleList({
                                                         ${item.isGenerating ? 'opacity-40 pointer-events-none' : ''}`}
                                                     onClick={() => {
                                                         if (!onOpenItem || item.isGenerating) return;
+                                                        if (mode === 'edit' && item.type === 'evaluator') {
+                                                            return;
+                                                        }
                                                         let questionId: string | undefined = undefined;
                                                         if (item.type === 'quiz' && totalQuizEntries > 0) {
                                                             const questionIds = Object.keys(itemQuizEntries);
@@ -983,6 +992,10 @@ export default function CourseModuleList({
                                                         ) : item.type === 'assignment' ? (
                                                             <div className={`w-7 h-7 rounded-md flex items-center justify-center ${assignmentWrapperClass}`}>
                                                                 <PenSquare size={16} className={assignmentIconColor} />
+                                                            </div>
+                                                        ) : item.type === 'evaluator' ? (
+                                                            <div className="w-7 h-7 rounded-md flex items-center justify-center bg-emerald-500/20">
+                                                                <Zap size={16} className="text-emerald-600 dark:text-emerald-400" />
                                                             </div>
                                                         ) : (
                                                             <div className={`w-7 h-7 rounded-md flex items-center justify-center ${quizWrapperClass}`}>
@@ -1022,10 +1035,28 @@ export default function CourseModuleList({
                                                 {/* Item action buttons - only in edit mode */}
                                                 {mode === 'edit' && (
                                                     <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                                                        {item.status === 'draft' && (
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-500 text-white">
-                                                                DRAFT
-                                                            </span>
+                                                        {(item.status !== 'published' || (item.type === 'evaluator' && item.status !== 'published')) && (
+                                                            item.type === 'evaluator' ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (onPublishItem) {
+                                                                            setPublishingTaskId(item.id);
+                                                                            onPublishItem(module.id, item.id);
+                                                                        }
+                                                                    }}
+                                                                    disabled={publishingTaskId === item.id}
+                                                                    className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                                                                >
+                                                                    {publishingTaskId === item.id ? (
+                                                                        <Loader2 size={10} className="animate-spin mr-1" />
+                                                                    ) : null}
+                                                                    PUBLISH
+                                                                </button>
+                                                            ) : item.status === 'draft' ? (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-500 text-white">
+                                                                    DRAFT
+                                                                </span>
+                                                            ) : null
                                                         )}
                                                         {item.status === 'published' && item.scheduled_publish_at && (
                                                             <Tooltip content={`Scheduled for ${formatScheduleDate(new Date(item.scheduled_publish_at))}`} position="top">
@@ -1181,6 +1212,55 @@ export default function CourseModuleList({
                                                 </Tooltip>
                                             </div>
                                         )}
+
+                                        {mode === 'edit' && (
+                                             <div className="relative group/eval mt-2">
+                                                 <Tooltip content="Add an agentic evaluator bot" position="top">
+                                                     <button
+                                                         onClick={() => {
+                                                             const element = document.getElementById(`eval-menu-${module.id}`);
+                                                             if (element) element.classList.toggle('hidden');
+                                                         }}
+                                                         className="flex items-center px-4 py-2 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 rounded-xl font-medium transition-all group/btn"
+                                                     >
+                                                         <Zap size={16} className="mr-2 group-hover/btn:scale-110 transition-transform" />
+                                                         + Evaluator
+                                                     </button>
+                                                 </Tooltip>
+                                                 
+                                                 <div
+                                                     id={`eval-menu-${module.id}`}
+                                                     className="hidden absolute left-0 top-full mt-2 w-64 bg-white dark:bg-[#1A1A1A] border border-slate-200 dark:border-[#333333] rounded-2xl shadow-xl z-50 p-2 animate-in fade-in zoom-in-95 duration-200"
+                                                 >
+                                                     <div className="grid grid-cols-1 gap-1">
+                                                         {[
+                                                             { type: 'narrative', label: 'Narrative Chat', icon: MessageSquare, desc: 'Exploratory dialogue' },
+                                                             { type: '3-2-1', label: '3-2-1 Reflection', icon: Brain, desc: 'Learner reflection' },
+                                                             { type: 'podcast', label: 'Podcast Segment', icon: Mic, desc: 'Explain as a host' },
+                                                             { type: 'quiz_competition', label: 'Interactive Competition', icon: Trophy, desc: 'Challenge student knowledge' },
+                                                             { type: 'delayed_recall', label: 'Delayed Recall', icon: RotateCcw, desc: 'Past concept review' }
+                                                         ].map((evaluator) => (
+                                                             <button
+                                                                 key={evaluator.type}
+                                                                 onClick={() => {
+                                                                     onAddEvaluator?.(module.id, evaluator.type as any);
+                                                                     document.getElementById(`eval-menu-${module.id}`)?.classList.add('hidden');
+                                                                 }}
+                                                                 className="flex items-center p-3 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors text-left group/item"
+                                                             >
+                                                                 <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg mr-3 group-hover/item:bg-emerald-500 group-hover/item:text-white transition-colors">
+                                                                     <evaluator.icon size={16} />
+                                                                 </div>
+                                                                 <div>
+                                                                     <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{evaluator.label}</div>
+                                                                     <div className="text-[10px] text-slate-400">{evaluator.desc}</div>
+                                                                 </div>
+                                                             </button>
+                                                         ))}
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         )}
                                     </div>
                                 </div>
                             )}

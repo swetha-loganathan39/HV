@@ -28,6 +28,11 @@ const DynamicLearnerAssignmentView = dynamic(
     { ssr: false }
 );
 
+const DynamicEvaluatorView = dynamic(
+    () => import("./EvaluatorView"),
+    { ssr: false }
+);
+
 interface LearnerCourseViewProps {
     modules: Module[];
     completedTaskIds?: Record<string, boolean>;
@@ -1324,6 +1329,14 @@ export default function LearnerCourseView({
                                                 viewOnly={viewOnly}
                                                 onTaskComplete={handleTaskCompletion}
                                                 onAiRespondingChange={handleAiRespondingChange}
+                                            />
+                                        )}
+                                        {(activeItem?.type === 'evaluator') && (
+                                            <DynamicEvaluatorView
+                                                taskId={activeItem.id}
+                                                userId={userId}
+                                                evaluatorType={activeItem.evaluator?.evaluator_type || 'narrative'}
+                                                readOnly={viewOnly}
                                             />
                                         )}
                                     </>

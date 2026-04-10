@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     slack_course_created_webhook_url: str | None = None
     slack_usage_stats_webhook_url: str | None = None
     slack_alert_webhook_url: str | None = None
+    elevenlabs_api_key: str | None = None
     model_config = SettingsConfigDict(env_file=join(root_dir, ".env"), extra="ignore")
 
 

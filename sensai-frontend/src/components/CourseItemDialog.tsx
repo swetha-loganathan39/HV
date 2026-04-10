@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import { Check, X, Pencil, Eye, Edit2, Zap } from "lucide-react";
 import dynamic from "next/dynamic";
 import { QuizQuestion } from "../types";
+import { useAuth } from "@/lib/auth";
 import type { LearningMaterialEditorHandle } from "./LearningMaterialEditor";
 import type { QuizEditorHandle } from "../types";
 import Toast from "./Toast";
@@ -43,6 +44,18 @@ const DynamicQuizEditor = dynamic(
 // Assignment editor
 const DynamicAssignmentEditor = dynamic(
     () => import("./AssignmentEditor"),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="flex items-center justify-center h-full w-full">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black dark:border-white"></div>
+            </div>
+        )
+    }
+);
+
+const DynamicEvaluatorView = dynamic(
+    () => import("./EvaluatorView"),
     {
         ssr: false,
         loading: () => (
@@ -101,6 +114,7 @@ const CourseItemDialog: React.FC<CourseItemDialogProps> = ({
     schoolId,
     courseId,
 }) => {
+    const { user } = useAuth();
     // Add refs for the editor components
     const learningMaterialEditorRef = useRef<LearningMaterialEditorHandle>(null);
     const quizEditorRef = useRef<QuizEditorHandle>(null);
@@ -827,7 +841,7 @@ const CourseItemDialog: React.FC<CourseItemDialogProps> = ({
                                     titleElement.dataset.editing = "true";
                                 }}
                                 className={`text-2xl font-light text-black dark:text-white outline-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:pointer-events-none cursor-text mr-4 ${(activeItem?.status !== 'published' || isEditMode) ? 'w-full min-w-[300px]' : ''}`}
-                                data-placeholder={activeItem?.type === 'material' ? 'New learning material' : (activeItem?.type === 'quiz' ? 'New quiz' : 'New assignment')}
+                                data-placeholder={activeItem?.type === 'material' ? 'New learning material' : (activeItem?.type === 'quiz' ? 'New quiz' : (activeItem?.type === 'assignment' ? 'New assignment' : 'New evaluator'))}
                             >
                                 {activeItem?.title}
                             </h2>
@@ -1251,6 +1265,13 @@ const CourseItemDialog: React.FC<CourseItemDialogProps> = ({
                                     }}
                                     isPreviewMode={previewMode}
                                 />
+                        ) : activeItem?.type === 'evaluator' ? (
+                            <DynamicEvaluatorView
+                                taskId={activeItem.id}
+                                userId={user?.id || 1}
+                                evaluatorType={activeItem.evaluator?.evaluator_type || 'narrative'}
+                                readOnly={!isPreviewMode}
+                            />
                         ) : null}
                     </div>
                 </div>

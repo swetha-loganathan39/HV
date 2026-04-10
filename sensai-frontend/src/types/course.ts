@@ -32,7 +32,22 @@ export interface Assignment {
   isGenerating?: boolean;
 }
 
-export type ModuleItem = LearningMaterial | Quiz | Assignment;
+export interface Evaluator {
+  id: string;
+  title: string;
+  position: number;
+  type: 'evaluator';
+  status?: string;
+  evaluator?: {
+    evaluator_type: string;
+    context?: any;
+    settings?: any;
+  };
+  scheduled_publish_at: string | null;
+  isGenerating?: boolean;
+}
+
+export type ModuleItem = LearningMaterial | Quiz | Assignment | Evaluator;
 
 export interface Module {
   id: string;

@@ -176,8 +176,8 @@ async def get_task_chat_history_for_user(
             AND ch.user_id = ? AND ch.deleted_at IS NULL AND q.deleted_at IS NULL
             ORDER BY ch.created_at ASC
         """
-    elif task["type"] == TaskType.ASSIGNMENT:
-        # For assignment tasks, get chat history directly by task_id
+    elif task["type"] in [TaskType.ASSIGNMENT, TaskType.EVALUATOR]:
+        # For assignment and evaluator tasks, get chat history directly by task_id
         query = f"""
             SELECT ch.id, ch.created_at, ch.user_id, ch.question_id, ch.role, ch.content, ch.response_type
             FROM {chat_history_table_name} ch

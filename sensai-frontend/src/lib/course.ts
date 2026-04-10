@@ -51,6 +51,17 @@ export function transformMilestonesToModules(milestones: Milestone[] | undefined
             scheduled_publish_at: task.scheduled_publish_at,
             isGenerating: task.is_generating
           });
+        } else if (task.type === 'evaluator') {
+          moduleItems.push({
+            id: task.id.toString(),
+            title: task.title,
+            position: task.ordering,
+            type: 'evaluator',
+            status: task.status,
+            evaluator: task.evaluator,
+            scheduled_publish_at: task.scheduled_publish_at,
+            isGenerating: task.is_generating
+          });
         }
       });
 

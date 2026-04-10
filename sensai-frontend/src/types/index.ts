@@ -54,6 +54,16 @@ export interface Task {
     questions?: any[]; // Questions for quizzes and exams
     scheduled_publish_at: string;
     is_generating: boolean;
+    assignment?: any;
+    evaluator?: Evaluator;
+}
+
+export type EvaluatorType = 'narrative' | '3-2-1' | 'podcast' | 'quiz_competition' | 'delayed_recall';
+
+export interface Evaluator {
+    evaluator_type: EvaluatorType;
+    context?: any;
+    settings?: any;
 }
 
 export interface Milestone {

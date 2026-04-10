@@ -32,6 +32,7 @@ from api.config import (
     integrations_table_name,
     assignment_table_name,
     bq_sync_table_name,
+    evaluators_table_name,
 )
 from api.db.migration import run_migrations
 
@@ -467,6 +468,41 @@ async def create_assignment_table(cursor):
     )
 
 
+async def create_evaluators_table(cursor):
+    await cursor.execute(
+        f"""CREATE TABLE IF NOT EXISTS {evaluators_table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL UNIQUE,
+                evaluator_type TEXT NOT NULL,
+                context TEXT,
+                settings TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                deleted_at DATETIME,
+                FOREIGN KEY (task_id) REFERENCES {tasks_table_name}(id) ON DELETE CASCADE
+            )"""
+    )
+
+    await cursor.execute(
+        f"""CREATE INDEX IF NOT EXISTS idx_evaluator_task_id ON {evaluators_table_name} (task_id)"""
+    )
+
+    trigger_name = f"set_updated_at_{evaluators_table_name}"
+    await cursor.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
+    await cursor.execute(
+        f"""
+        CREATE TRIGGER {trigger_name}
+        AFTER UPDATE ON {evaluators_table_name}
+        FOR EACH ROW
+        BEGIN
+            UPDATE {evaluators_table_name}
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE id = NEW.id;
+        END;
+        """
+    )
+
+
 async def create_scorecards_table(cursor):
     await cursor.execute(
         f"""CREATE TABLE IF NOT EXISTS {scorecards_table_name} (
@@ -709,6 +745,8 @@ async def init_db():
             await create_assignment_table(cursor)
 
             await create_bq_sync_table(cursor)
+
+            await create_evaluators_table(cursor)
 
             await conn.commit()
 

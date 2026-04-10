@@ -458,6 +458,20 @@ export default function CreateCourse() {
         return addItemToState(moduleId, newItem, position);
     };
 
+    const addEvaluatorToState = (moduleId: string, taskData: any, position: number) => {
+        const newItem = {
+            id: taskData.id.toString(),
+            title: taskData.title || "New evaluator",
+            position: position,
+            type: 'evaluator',
+            status: 'published',
+            evaluator: taskData.evaluator,
+            scheduled_publish_at: null
+        } as any;
+
+        return addItemToState(moduleId, newItem, position);
+    };
+
     // Add handleDuplicateItem function to handle task duplication
     const handleDuplicateItem = async (moduleId: string, taskData: any, position: number) => {
         try {
@@ -472,6 +486,8 @@ export default function CreateCourse() {
                 addQuizToState(moduleId, taskData, position);
             } else if (taskData.type === "assignment") {
                 addAssignmentToState(moduleId, taskData, position);
+            } else if (taskData.type === "evaluator") {
+                addEvaluatorToState(moduleId, taskData, position);
             }
 
             // Auto-hide toast after 3 seconds
@@ -589,6 +605,119 @@ export default function CreateCourse() {
             addAssignmentToState(moduleId, data, modules.find(m => m.id === moduleId)?.items.length || 0);
         } catch (error) {
             console.error("Error creating assignment:", error);
+        }
+    };
+
+    const addEvaluator = async (moduleId: string, type: string) => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId),
+                    milestone_id: parseInt(moduleId),
+                    type: "evaluator",
+                    title: `New ${type.replace(/_/g, ' ')} evaluator`,
+                    status: "published"
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to create base task: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const taskId = data.id;
+
+            const evaluatorResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/${taskId}/evaluator`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title: `New ${type.replace(/_/g, ' ')} evaluator`,
+                    evaluator: {
+                        evaluator_type: type,
+                        context: {},
+                        settings: {}
+                    },
+                    status: "published"
+                }),
+            });
+
+            if (!evaluatorResponse.ok) {
+                throw new Error(`Failed to initialize evaluator: ${evaluatorResponse.status}`);
+            }
+
+            const evaluatorData = await evaluatorResponse.json();
+
+            addEvaluatorToState(moduleId, evaluatorData, modules.find(m => m.id === moduleId)?.items.length || 0);
+
+        } catch (error) {
+            console.error("Error creating evaluator:", error);
+            setToast({
+                show: true,
+                title: 'Error',
+                description: 'Failed to create evaluator',
+                emoji: '❌'
+            });
+        }
+    };
+
+    const handlePublishItem = async (moduleId: string, itemId: string) => {
+        try {
+            const module = modules.find(m => m.id === moduleId);
+            if (!module) return;
+
+            const item = module.items.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (item.type === 'evaluator') {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/${itemId}`);
+                if (!response.ok) throw new Error("Failed to fetch task details");
+
+                const taskData = await response.json();
+
+                const publishResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tasks/${itemId}/evaluator`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: taskData.title,
+                        evaluator: taskData.evaluator || {
+                            evaluator_type: 'narrative',
+                            context: {},
+                            settings: {}
+                        },
+                        status: 'published',
+                        scheduled_publish_at: null
+                    }),
+                });
+
+                if (!publishResponse.ok) throw new Error("Failed to publish evaluator");
+
+                updateModuleItemAfterPublish(moduleId, itemId, 'published', taskData.title, null);
+
+                setToast({
+                    show: true,
+                    title: 'Evaluator Live',
+                    description: 'Your bot is now visible to learners',
+                    emoji: '🚀'
+                });
+            } else {
+                console.log("Publish not yet implemented for direct click on this type");
+            }
+        } catch (error) {
+            console.error("Error publishing item:", error);
+            setToast({
+                show: true,
+                title: 'Publishing Failed',
+                description: 'Could not sync status with background server',
+                emoji: '⚠️'
+            });
         }
     };
 
@@ -2053,6 +2182,7 @@ export default function CreateCourse() {
                             onAddLearningMaterial={addLearningMaterial}
                             onAddQuiz={addQuiz}
                             onAddAssignment={addAssignment}
+                            onAddEvaluator={addEvaluator}
                             onMoveModuleUp={moveModuleUp}
                             onMoveModuleDown={moveModuleDown}
                             onDeleteModule={deleteModule}
@@ -2078,6 +2208,7 @@ export default function CreateCourse() {
                             schoolId={schoolId}
                             courseId={courseId}
                             onDuplicateItem={handleDuplicateItem}
+                            onPublishItem={handlePublishItem}
                         />
                     </div>
 

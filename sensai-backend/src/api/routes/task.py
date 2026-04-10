@@ -14,6 +14,8 @@ from api.db.task import (
     get_all_learning_material_tasks_for_course as get_all_learning_material_tasks_for_course_from_db,
     create_assignment as create_assignment_in_db,
     update_assignment as update_assignment_in_db,
+    create_evaluator as create_evaluator_in_db,
+    update_evaluator as update_evaluator_in_db,
 )
 from api.models import (
     Task,
@@ -32,6 +34,8 @@ from api.models import (
     DuplicateTaskResponse,
     MarkTaskCompletedRequest,
     AssignmentRequest,
+    EvaluatorTask,
+    EvaluatorRequest,
 )
 
 router = APIRouter()
@@ -148,7 +152,7 @@ async def get_tasks_completed_for_user(
 
 
 @router.get("/{task_id}")
-async def get_task(task_id: int) -> LearningMaterialTask | QuizTask | AssignmentTask:
+async def get_task(task_id: int) -> LearningMaterialTask | QuizTask | AssignmentTask | EvaluatorTask:
     task = await get_task_from_db(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -190,4 +194,42 @@ async def update_assignment(
     )
     if not result:
         raise HTTPException(status_code=404, detail="Task not found or assignment does not exist")
+    return result
+
+
+@router.post("/{task_id}/evaluator", response_model=EvaluatorTask)
+async def create_evaluator(
+    task_id: int, request: EvaluatorRequest
+) -> EvaluatorTask:
+    result = await create_evaluator_in_db(
+        task_id=task_id,
+        title=request.title,
+        evaluator=request.evaluator.model_dump(),
+        scheduled_publish_at=request.scheduled_publish_at,
+        status=request.status,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found or evaluator already exists",
+        )
+    return result
+
+
+@router.put("/{task_id}/evaluator", response_model=EvaluatorTask)
+async def update_evaluator(
+    task_id: int, request: EvaluatorRequest
+) -> EvaluatorTask:
+    result = await update_evaluator_in_db(
+        task_id=task_id,
+        title=request.title,
+        evaluator=request.evaluator.model_dump(),
+        scheduled_publish_at=request.scheduled_publish_at,
+        status=request.status,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found or evaluator does not exist",
+        )
     return result

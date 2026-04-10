@@ -190,6 +190,7 @@ class TaskType(Enum):
     QUIZ = "quiz"
     LEARNING_MATERIAL = "learning_material"
     ASSIGNMENT = "assignment"
+    EVALUATOR = "evaluator"
 
     def __str__(self):
         return self.value
@@ -200,6 +201,27 @@ class TaskType(Enum):
         elif isinstance(other, TaskType):
             return self.value == other.value
         return False
+
+
+class EvaluatorType(str, Enum):
+    NARRATIVE = "narrative"
+    THREE_TWO_ONE = "3-2-1"
+    PODCAST = "podcast"
+    QUIZ_COMPETITION = "quiz_competition"
+    DELAYED_RECALL = "delayed_recall"
+
+    def __str__(self):
+        return self.value
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.value == other
+        elif isinstance(other, EvaluatorType):
+            return self.value == other.value
+        return False
+
+    def __hash__(self):
+        return hash(self.value)
 
 
 class TaskStatus(Enum):
@@ -379,8 +401,28 @@ class AssignmentTask(Task):
 
 class AssignmentRequest(AssignmentTask):
     id: Optional[int] = None
+    title: Optional[str] = None
     type: Optional[TaskType] = None
     status: Optional[str] = None
+    scheduled_publish_at: Optional[datetime] = None
+
+
+class Evaluator(BaseModel):
+    evaluator_type: EvaluatorType
+    context: Optional[Dict] = None
+    settings: Optional[Any] = None
+
+
+class EvaluatorTask(Task):
+    evaluator: Evaluator
+
+
+class EvaluatorRequest(EvaluatorTask):
+    id: Optional[int] = None
+    title: Optional[str] = None
+    type: Optional[TaskType] = None
+    status: Optional[str] = None
+    scheduled_publish_at: Optional[datetime] = None
 
 
 class GenerateCourseJobStatus(str, Enum):
@@ -618,7 +660,7 @@ class DuplicateTaskRequest(BaseModel):
 
 
 class DuplicateTaskResponse(BaseModel):
-    task: LearningMaterialTask | QuizTask | AssignmentTask
+    task: LearningMaterialTask | QuizTask | AssignmentTask | EvaluatorTask
     ordering: int
 
 

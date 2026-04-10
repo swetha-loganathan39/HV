@@ -14,9 +14,11 @@ from api.config import (
     questions_table_name,
     chat_history_table_name,
     course_cohorts_table_name,
+    course_milestones_table_name,
     task_completions_table_name,
     task_generation_jobs_table_name,
     assignment_table_name,
+    evaluators_table_name,
 )
 from api.utils.db import (
     get_new_db_connection,
@@ -33,7 +35,10 @@ from api.models import (
     TaskAIResponseType,
     BaseScorecard,
 )
-from api.db.utils import convert_blocks_to_right_format
+from api.db.utils import (
+    convert_blocks_to_right_format,
+    construct_description_from_blocks,
+)
 
 
 async def create_draft_task_for_course(
@@ -158,6 +163,15 @@ def convert_assignment_to_task_dict(assignment: Dict) -> Dict:
         "settings": assignment["settings"] if assignment else None,
     }
 
+
+def convert_evaluator_to_task_dict(evaluator: Dict) -> Dict:
+    return {
+        "evaluator_type": evaluator["evaluator_type"] if evaluator else None,
+        "context": evaluator["context"] if evaluator else None,
+        "settings": evaluator["settings"] if evaluator else None,
+    }
+
+
 async def get_scorecard(scorecard_id: int) -> Dict:
     if scorecard_id is None:
         return
@@ -260,6 +274,10 @@ async def get_task(task_id: int):
     elif task_data["type"] == TaskType.ASSIGNMENT:
         assignment = await get_assignment(task_id)
         task_data["assignment"] = convert_assignment_to_task_dict(assignment)
+
+    elif task_data["type"] == TaskType.EVALUATOR:
+        evaluator = await get_evaluator(task_id)
+        task_data["evaluator"] = convert_evaluator_to_task_dict(evaluator)
 
     return task_data
 
@@ -680,6 +698,14 @@ async def duplicate_task(task_id: int, course_id: int, milestone_id: int) -> int
             None,
             TaskStatus.DRAFT,
         )
+    elif task["type"] == TaskType.EVALUATOR:
+        await create_evaluator(
+            new_task_id,
+            task["title"],
+            task["evaluator"],
+            None,
+            TaskStatus.DRAFT,
+        )
     else:
         raise ValueError("Task type not supported")
 
@@ -792,6 +818,163 @@ async def delete_completion_history_for_task(
         f"UPDATE {chat_history_table_name} SET deleted_at = CURRENT_TIMESTAMP WHERE question_id = ? AND user_id = ? AND deleted_at IS NULL",
         (question_id, user_id),
     )
+
+
+async def get_evaluator(task_id: int) -> Dict:
+    evaluator = await execute_db_operation(
+        f"""
+        SELECT id, task_id, evaluator_type, context, settings
+        FROM {evaluators_table_name}
+        WHERE task_id = ? AND deleted_at IS NULL
+        """,
+        (task_id,),
+        fetch_one=True,
+    )
+
+    if not evaluator:
+        return None
+
+    return {
+        "id": evaluator[0],
+        "task_id": evaluator[1],
+        "evaluator_type": evaluator[2],
+        "context": json.loads(evaluator[3]) if evaluator[3] else None,
+        "settings": json.loads(evaluator[4]) if evaluator[4] else None,
+    }
+
+
+async def create_evaluator(
+    task_id: int,
+    title: str,
+    evaluator: Dict,
+    scheduled_publish_at: Optional[datetime] = None,
+    status: TaskStatus = TaskStatus.PUBLISHED,
+):
+    async with get_new_db_connection() as conn:
+        cursor = await conn.cursor()
+
+        await cursor.execute(
+            f"UPDATE {tasks_table_name} SET title = ?, status = ?, scheduled_publish_at = ? WHERE id = ?",
+            (title, str(status), scheduled_publish_at, task_id),
+        )
+
+        await cursor.execute(
+            f"SELECT id FROM {evaluators_table_name} WHERE task_id = ?",
+            (task_id,),
+        )
+        existing = await cursor.fetchone()
+
+        if existing:
+            await cursor.execute(
+                f"""
+                UPDATE {evaluators_table_name}
+                SET evaluator_type = ?, context = ?, settings = ?, deleted_at = NULL
+                WHERE task_id = ?
+                """,
+                (
+                    evaluator["evaluator_type"],
+                    json.dumps(evaluator.get("context", {})),
+                    json.dumps(evaluator.get("settings", {})),
+                    task_id,
+                ),
+            )
+        else:
+            await cursor.execute(
+                f"""
+                INSERT INTO {evaluators_table_name} (task_id, evaluator_type, context, settings)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    task_id,
+                    evaluator["evaluator_type"],
+                    json.dumps(evaluator.get("context", {})),
+                    json.dumps(evaluator.get("settings", {})),
+                ),
+            )
+
+        await conn.commit()
+
+    return await get_task(task_id)
+
+
+async def update_evaluator(
+    task_id: int,
+    title: str,
+    evaluator: Dict,
+    scheduled_publish_at: Optional[datetime] = None,
+    status: TaskStatus = TaskStatus.PUBLISHED,
+):
+    return await create_evaluator(
+        task_id,
+        title,
+        evaluator
+        or {
+            "evaluator_type": "narrative",
+            "context": {},
+            "settings": {},
+        },
+        scheduled_publish_at,
+        status,
+    )
+
+
+async def get_evaluator_reference_materials(task_id: int) -> str:
+    metadata = await get_task_metadata(task_id)
+    if not metadata:
+        return ""
+
+    course_id = metadata["course"]["id"]
+    current_milestone_id = metadata["milestone"]["id"]
+
+    milestones = await execute_db_operation(
+        f"""
+        SELECT milestone_id
+        FROM {course_milestones_table_name}
+        WHERE course_id = ? AND deleted_at IS NULL
+        ORDER BY ordering ASC
+        """,
+        (course_id,),
+        fetch_all=True,
+    )
+
+    ordered_milestones = [milestone[0] for milestone in milestones]
+
+    try:
+        current_index = ordered_milestones.index(current_milestone_id)
+        relevant_milestone_ids = ordered_milestones[: current_index + 1]
+    except ValueError:
+        relevant_milestone_ids = [current_milestone_id]
+
+    milestones_placeholder = ",".join(["?"] * len(relevant_milestone_ids))
+    tasks = await execute_db_operation(
+        f"""
+        SELECT t.blocks, t.title
+        FROM {tasks_table_name} t
+        INNER JOIN {course_tasks_table_name} ct ON t.id = ct.task_id
+        WHERE ct.course_id = ?
+        AND ct.milestone_id IN ({milestones_placeholder})
+        AND t.type = ?
+        AND t.status = ?
+        AND t.deleted_at IS NULL
+        ORDER BY ct.ordering ASC
+        """,
+        (
+            course_id,
+            *relevant_milestone_ids,
+            str(TaskType.LEARNING_MATERIAL),
+            str(TaskStatus.PUBLISHED),
+        ),
+        fetch_all=True,
+    )
+
+    reference_content = []
+    for blocks_json, title in tasks:
+        if blocks_json:
+            blocks = json.loads(blocks_json)
+            text = construct_description_from_blocks(blocks)
+            reference_content.append(f"### {title}\n{text}")
+
+    return "\n\n".join(reference_content)
 
 
 async def schedule_module_tasks(
