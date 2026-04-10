@@ -9,11 +9,10 @@ export const metadata: Metadata = {
 
 async function getCohortName(cohortId: string) {
     try {
-        const cookieStore = await cookies();
         // Replace with your actual API endpoint
         const res = await fetch(`${process.env.BACKEND_URL}/cohorts/${cohortId}`, {
             headers: {
-                Cookie: cookieStore.toString()
+                Cookie: cookies().toString()
             }
         });
 
@@ -27,13 +26,13 @@ async function getCohortName(cohortId: string) {
     }
 }
 
-export default async function LeaderboardPage(props: {
-    params: Promise<{ id: string; cohortId: string }>;
-    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+export default async function LeaderboardPage({
+    params,
+    searchParams
+}: {
+    params: { id: string; cohortId: string };
+    searchParams: { [key: string]: string | string[] | undefined };
 }) {
-    const params = await props.params;
-    const searchParams = await props.searchParams;
-
     // Fetch the cohort name on the server
     const cohortName = await getCohortName(params.cohortId);
 

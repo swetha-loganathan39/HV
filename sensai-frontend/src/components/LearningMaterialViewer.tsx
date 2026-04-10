@@ -18,8 +18,6 @@ import ChatView from "./ChatView";
 import { ChatMessage } from "../types/quiz";
 import { useAuth } from "@/lib/auth";
 import { useThemePreference } from "@/lib/hooks/useThemePreference";
-import { useContentTelemetry } from "@/lib/hooks/useContentTelemetry";
-
 
 // Add imports for Notion rendering
 import { BlockList, RenderConfig } from "@udus/notion-renderer/components";
@@ -49,14 +47,8 @@ export default function LearningMaterialViewer({
     // Use global theme (html.dark) as the source of truth.
     const { isDarkMode } = useThemePreference();
 
+    const editorContainerRef = useRef<HTMLDivElement>(null);
     const [taskData, setTaskData] = useState<TaskData | null>(null);
-    
-    // Integrate telemetry tracking for Phase 1
-    const telemetryRef = useContentTelemetry({
-        taskId,
-        userId
-    });
-
     const [isLoading, setIsLoading] = useState(true);
 
     // No animations on the "Ask a doubt" button (kept simple + consistent)
@@ -711,7 +703,7 @@ export default function LearningMaterialViewer({
                 <div
                     className="py-6 flex flex-col h-full content-container bg-white dark:bg-[#1A1A1A]"
                     style={{ overflow: 'auto' }}
-                    ref={telemetryRef}
+                    ref={editorContainerRef}
                 >
                     <div className="flex-1">
                         {integrationBlocks.length > 0 ? (

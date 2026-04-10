@@ -15,7 +15,6 @@ import "@udus/notion-renderer/styles/globals.css";
 import "katex/dist/katex.min.css";
 import { useAuth } from "@/lib/auth";
 import { useThemePreference } from "@/lib/hooks/useThemePreference";
-import { useContentTelemetry } from "@/lib/hooks/useContentTelemetry";
 
 interface Settings {
     allowCopyPaste?: boolean;
@@ -79,12 +78,6 @@ export default function LearnerAssignmentView({
     // Data fetching state
     const [isLoadingAssignment, setIsLoadingAssignment] = useState(true);
     const [hasFetchedData, setHasFetchedData] = useState(false);
-
-    // Integrate telemetry tracking
-    const telemetryRef = useContentTelemetry({
-        taskId,
-        userId
-    });
 
     // Assignment data state
     const [problemBlocks, setProblemBlocks] = useState<unknown[]>(initialProblemBlocks);
@@ -1155,7 +1148,6 @@ export default function LearnerAssignmentView({
                 <div
                     className="p-6 flex flex-col lg:border-r lg:border-b-0 sm:border-b sm:border-r-0 bg-white border-gray-200 dark:bg-[#1A1A1A] dark:border-[#222222]"
                     style={{ overflow: 'auto' }}
-                    ref={telemetryRef}
                 >
                     {/* Header chip */}
                     <div className="flex items-center justify-center w-full mb-6">

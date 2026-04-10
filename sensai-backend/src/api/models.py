@@ -799,3 +799,153 @@ class UpdateIntegrationRequest(BaseModel):
     access_token: str | None = None
     refresh_token: str | None = None
     expires_at: datetime | None = None
+
+class LearningCategory(str, Enum):
+    THEORY = "theory"
+    PRACTICAL = "practical"
+    VISUAL = "visual"
+    BALANCED = "balanced"
+
+class LearningStatus(str, Enum):
+    LEARNED = "learned"
+    PARTIALLY_LEARNED = "partially_learned"
+    STRUGGLING = "struggling"
+    SKIPPED_PASSIVE = "skipped"
+
+class DeviceMetadata(BaseModel):
+    os: Optional[str] = None
+    browser: Optional[str] = None
+    device_type: Optional[str] = None
+    screen_resolution: Optional[str] = None
+    viewport_size: Optional[str] = None
+    timezone: Optional[str] = None
+    language: Optional[str] = None
+    connection_type: Optional[str] = None
+
+class InteractionMetadata(BaseModel):
+    rage_clicks: Optional[int] = 0
+    dead_clicks: Optional[int] = 0
+    copy_paste_count: Optional[int] = 0
+    highlight_text_count: Optional[int] = 0
+    typing_speed_wpm: Optional[float] = None
+    backspace_count: Optional[int] = 0
+    time_to_first_interaction_ms: Optional[int] = None
+    rapid_scroll_count: Optional[int] = 0
+    focus_losses: Optional[int] = 0
+    mouse_trajectory_score: Optional[float] = None
+
+class ChatbotMetadata(BaseModel):
+    total_messages_sent: Optional[int] = 0
+    average_prompt_length: Optional[float] = None
+    time_spent_reading_ai_ms: Optional[int] = 0
+    hints_requested: Optional[int] = 0
+    regenerate_requests: Optional[int] = 0
+    copy_from_chat_count: Optional[int] = 0
+    paste_into_chat_count: Optional[int] = 0
+    is_frustrated: Optional[bool] = False
+    sentiment_score: Optional[float] = None
+    user_interruption_count: Optional[int] = 0
+    hesitation_time_ms: Optional[int] = 0
+
+class MetricAnalysis(BaseModel):
+    metric_id: str
+    impact_score: float
+    analysis: str
+
+class AggregatedScoring(BaseModel):
+    behavior_score: float
+    performance_score: float
+    overall_engagement_score: float
+    classification: str
+    task_weight_applied: float
+    metric_breakdown: Optional[List[MetricAnalysis]] = []
+
+class AdvancedScoringMetadata(BaseModel):
+    device: Optional[DeviceMetadata] = None
+    interaction: Optional[InteractionMetadata] = None
+    chatbot: Optional[ChatbotMetadata] = None
+    custom_events: Optional[Dict[str, Any]] = None
+    engine_scores: Optional[AggregatedScoring] = None
+
+class UserLearningSignal(BaseModel):
+    id: Optional[int] = None
+    user_id: int
+    task_id: int
+    # Consumption Signals
+    completion_percentage: float
+    total_watch_time: Optional[int] = None # in seconds
+    duration: Optional[int] = None # total video/article length
+    scroll_depth: Optional[float] = None # percentage
+    time_spent: Optional[int] = None # vs duration
+    expected_reading_time: Optional[int] = None
+    # Engagement Signals
+    pause_count: int = 0
+    seek_back_count: int = 0
+    playback_speed_avg: float = 1.0
+    skip_forward_count: int = 0
+    active_reading_time: Optional[int] = None
+    smooth_scroll_score: Optional[float] = None
+    jump_scroll_count: int = 0
+    text_selections: int = 0
+    link_clicks: int = 0
+    # Attention Signals
+    tab_focus_time: int = 0
+    idle_time: int = 0
+    continuous_interaction_time: int = 0 # mouse/scroll activity
+    # Behavioral Patterns
+    revisit_frequency: int = 0
+    repeated_sections_count: int = 0
+    delayed_return: bool = False
+    early_exit: bool = False
+    # Deep Metadata
+    metadata: Optional[AdvancedScoringMetadata] = None
+    # Timestamps
+    created_at: Optional[datetime] = None
+
+class LogSignalRequest(BaseModel):
+    task_id: int
+    # Consumption
+    completion_percentage: float = 0.0
+    total_watch_time: Optional[int] = None
+    duration: Optional[int] = None
+    scroll_depth: Optional[float] = None
+    time_spent: Optional[int] = None
+    expected_reading_time: Optional[int] = None
+    # Engagement
+    pause_count: int = 0
+    seek_back_count: int = 0
+    playback_speed_avg: float = 1.0
+    skip_forward_count: int = 0
+    active_reading_time: Optional[int] = None
+    smooth_scroll_score: Optional[float] = None
+    jump_scroll_count: int = 0
+    text_selections: int = 0
+    link_clicks: int = 0
+    # Attention
+    tab_focus_time: int = 0
+    idle_time: int = 0
+    continuous_interaction_time: int = 0
+    # Behavioral
+    revisit_frequency: int = 0
+    repeated_sections_count: int = 0
+    delayed_return: bool = False
+    early_exit: bool = False
+    # Deep Metadata
+    metadata: Optional[AdvancedScoringMetadata] = None
+
+class UserLearningProfile(BaseModel):
+    id: Optional[int] = None
+    user_id: int
+    category: LearningCategory
+    overall_status: LearningStatus
+    faking_flag: bool = False
+    last_updated: Optional[datetime] = None
+
+class ChatAssessmentScore(BaseModel):
+    id: Optional[int] = None
+    user_id: int
+    task_id: int
+    session_type: str # e.g. "SUMMARIZE", "COMPETITIVE_QUIZ", "3_2_1_STRATEGY"
+    score_value: float # 0.0 to 1.0 (AI determined)
+    quality_tier: str # "HIGH_CONFIDENCE", "PARTIAL", "STRUGGLING"
+    created_at: Optional[datetime] = None

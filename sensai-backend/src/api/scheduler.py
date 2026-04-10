@@ -46,3 +46,13 @@ async def check_scheduled_tasks():
 @with_error_reporting("memory_check")
 async def check_memory():
     await check_memory_and_raise_alert()
+
+from api.cron import compute_learning_status
+
+@scheduler.scheduled_job("interval", hours=1)
+@with_error_reporting("compute_learning_status")
+async def process_learning_signals():
+    """
+    Periodically processes telemetry signals to understand learner state.
+    """
+    await compute_learning_status()

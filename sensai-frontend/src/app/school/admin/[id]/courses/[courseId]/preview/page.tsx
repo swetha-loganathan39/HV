@@ -5,10 +5,9 @@ import ClientPreviewWrapper from './ClientPreviewWrapper';
 import { getPublishedCourseModules } from '@/lib/server-api';
 
 export async function generateMetadata(
-    props: { params: Promise<{ id: string, courseId: string }> }
+    { params }: { params: { id: string, courseId: string } }
 ): Promise<Metadata> {
     try {
-        const params = await props.params;
         const courseResponse = await fetch(`${process.env.BACKEND_URL}/courses/${params.courseId}`, {
             cache: 'no-store'
         });
@@ -34,8 +33,7 @@ export async function generateMetadata(
     }
 }
 
-export default async function PreviewPage(props: { params: Promise<{ id: string, courseId: string }> }) {
-    const params = await props.params;
+export default async function PreviewPage({ params }: { params: { id: string, courseId: string } }) {
     const orgId = params.id;
     const courseId = params.courseId;
 
